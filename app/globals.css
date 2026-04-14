@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f6f8fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 107, 0, 0.13), rgba(246, 248, 251, 0) 320px),
+    radial-gradient(circle at 85% 8%, rgba(11, 78, 162, 0.12), rgba(246, 248, 251, 0) 300px),
+    #f6f8fb;
+  color: #141414;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+a {
+  text-decoration: none;
+}
