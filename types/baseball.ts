@@ -13,6 +13,10 @@ export interface ScheduleGame {
   homeTeam: string;
   awayTeamCode?: string;
   homeTeamCode?: string;
+  seasonId?: string;
+  seriesId?: string;
+  awayStartingPitcherId?: string;
+  homeStartingPitcherId?: string;
   awayScore?: number | null;
   homeScore?: number | null;
   awayStartingPitcher?: string;
@@ -37,6 +41,7 @@ export interface ScoreboardGame extends ScheduleGame {
   bases?: string[];
   currentBatter?: string;
   currentPitcher?: string;
+  matchupAnalysis?: MatchupAnalysis;
 }
 
 export interface StandingRow {
@@ -109,11 +114,51 @@ export interface NewsItem {
   publishedAt?: string;
 }
 
+export interface TeamPowerRow {
+  team: string;
+  record: string;
+  recent: string;
+  era: string;
+  battingAverage: string;
+  averageRuns: string;
+  averageAllowed: string;
+}
+
+export interface StartingPitcherAnalysis {
+  team: string;
+  name: string;
+  style?: string;
+  seasonRecord?: string;
+  era: string;
+  war: string;
+  games: string;
+  averageStarterInnings: string;
+  qualityStarts: string;
+  whip: string;
+}
+
+export interface KeyPlayerRow {
+  category: string;
+  team: string;
+  rank: string;
+  name: string;
+  rate: string;
+  record?: string;
+}
+
+export interface MatchupAnalysis {
+  teamPower: TeamPowerRow[];
+  startingPitchers: StartingPitcherAnalysis[];
+  keyPlayers: KeyPlayerRow[];
+  source: "KBO";
+}
+
 export interface GameDetail {
   id: string;
   title: string;
   status: "placeholder" | "ready";
   scoreboard?: ScoreboardGame;
+  matchupAnalysis?: MatchupAnalysis;
   refreshedAt?: string;
   innings: Array<{
     inning: number;

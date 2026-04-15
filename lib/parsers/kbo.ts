@@ -2,10 +2,14 @@ import * as cheerio from "cheerio";
 import type {
   GameDetail,
   HitterStatRow,
+  KeyPlayerRow,
+  MatchupAnalysis,
   PitcherStatRow,
   ScheduleGame,
   ScoreboardGame,
   StandingRow,
+  StartingPitcherAnalysis,
+  TeamPowerRow,
   TeamHittingRow,
   TeamPitchingRow
 } from "@/types/baseball";
@@ -58,6 +62,11 @@ type KboLiveTextResponse = {
       }>;
     }>;
   }>;
+};
+
+export type KboGridResponseLike = {
+  headers?: KboGridRow[];
+  rows?: KboGridRow[];
 };
 
 type KboLiveScoreResponse = {
@@ -315,6 +324,10 @@ export function parseMainGameList(payload: KboGameListResponse, sourceUrl: strin
       homeTeam: rawString(row, "HOME_NM"),
       awayTeamCode: rawString(row, "AWAY_ID"),
       homeTeamCode: rawString(row, "HOME_ID"),
+      seasonId: rawString(row, "SEASON_ID"),
+      seriesId: rawString(row, "SR_ID"),
+      awayStartingPitcherId: rawString(row, "T_PIT_P_ID"),
+      homeStartingPitcherId: rawString(row, "B_PIT_P_ID"),
       awayScore,
       homeScore,
       awayStartingPitcher: rawString(row, "T_PIT_P_NM"),
@@ -446,6 +459,126 @@ export function parseLiveText(payload: KboLiveTextResponse): GameDetail["playByP
   }
 
   return result;
+}
+
+function cellsFromGridRow(row: KboGridRow | undefined) {
+  return (row?.row ?? []).map((cell) => ({
+    text: textFromHtml(cell.Text),
+    raw: cell.Text ?? "",
+    className: cell.Class ?? ""
+  }));
+}
+
+export function parseTeamPower(payload: KboGridResponseLike): TeamPowerRow[] {
+  return (payload.rows ?? [])
+    .map((row): TeamPowerRow | null => {
+      const cells = cellsFromGridRow(row);
+      if (cells.length < 7) return null;
+
+      return {
+        team: cells[0].text,
+        record: cells[1].text,
+        recent: cells[2].text,
+        era: cells[3].text,
+        battingAverage: cells[4].text,
+        averageRuns: cells[5].text,
+        averageAllowed: cells[6].text
+      };
+    })
+    .filter((row): row is TeamPowerRow => Boolean(row?.team));
+}
+
+export function parseStartingPitchers(payload: KboGridResponseLike, teams: string[]): StartingPitcherAnalysis[] {
+  return (payload.rows ?? [])
+    .map((row, index): StartingPitcherAnalysis | null => {
+      const cells = cellsFromGridRow(row);
+      if (cells.length < 7) return null;
+
+      const $ = load(`<div>${cells[0].raw}</div>`);
+      const name = normalizeText($(".name").text()) || cells[0].text.split(" ")[0] || "";
+      const style = normalizeText($(".style").text());
+      const seasonRecord = normalizeText($(".record").text());
+
+      return {
+        team: teams[index] ?? "",
+        name,
+        style,
+        seasonRecord,
+        era: cells[1].text || "-",
+        war: cells[2].text || "-",
+        games: cells[3].text || "-",
+        averageStarterInnings: cells[4].text || "-",
+        qualityStarts: cells[5].text || "-",
+        whip: cells[6].text || "-"
+      };
+    })
+    .filter((row): row is StartingPitcherAnalysis => Boolean(row?.name));
+}
+
+function parseKeyPlayerCell(raw: string) {
+  const $ = load(`<div>${raw}</div>`);
+  const name = normalizeText($(".name").first().text());
+  const rate = normalizeText($(".rate").first().text());
+  const record = normalizeText($(".record").first().text());
+  const fallback = textFromHtml(raw);
+
+  return {
+    name: name || fallback.replace(/\s+[+\d.%-]+.*$/, ""),
+    rate,
+    record
+  };
+}
+
+export function parseTeamKeyPlayers(payload: KboGridResponseLike, teams: string[]): KeyPlayerRow[] {
+  const result: KeyPlayerRow[] = [];
+  let category = "";
+
+  for (const row of payload.rows ?? []) {
+    const cells = cellsFromGridRow(row);
+    if (!cells.length) continue;
+
+    const hasCategory = cells.length >= 5;
+    if (hasCategory) category = cells[0].text.replace(/\s+/g, " ");
+
+    const offset = hasCategory ? 1 : 0;
+    const awayRank = cells[offset]?.text;
+    const awayPlayer = parseKeyPlayerCell(cells[offset + 1]?.raw ?? "");
+    const homeRank = cells[offset + 2]?.text;
+    const homePlayer = parseKeyPlayerCell(cells[offset + 3]?.raw ?? "");
+
+    if (awayPlayer.name) {
+      result.push({
+        category,
+        team: teams[0] ?? "",
+        rank: awayRank ?? "",
+        ...awayPlayer
+      });
+    }
+
+    if (homePlayer.name) {
+      result.push({
+        category,
+        team: teams[1] ?? "",
+        rank: homeRank ?? "",
+        ...homePlayer
+      });
+    }
+  }
+
+  return result;
+}
+
+export function composeMatchupAnalysis(
+  teamPower: TeamPowerRow[],
+  startingPitchers: StartingPitcherAnalysis[],
+  keyPlayers: KeyPlayerRow[]
+): MatchupAnalysis {
+  return {
+    teamPower,
+    startingPitchers,
+    keyPlayers,
+    source: "KBO"
+  };
 }
 
 export function parseStandings(html: string): StandingRow[] {

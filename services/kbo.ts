@@ -2,7 +2,9 @@ import dayjs from "dayjs";
 import { getOrSetCache } from "@/lib/cache";
 import { fetchFormJson, fetchHtml } from "@/lib/fetcher";
 import {
+  type KboGridResponseLike,
   type KboGameListResponse,
+  composeMatchupAnalysis,
   parseGroundLineups,
   parseHitterStats,
   parseLiveScoreInnings,
@@ -13,10 +15,13 @@ import {
   parseScheduleGrid,
   parseScoreboard,
   parseStandings,
+  parseStartingPitchers,
+  parseTeamKeyPlayers,
+  parseTeamPower,
   parseTeamHittingStats,
   parseTeamPitchingStats
 } from "@/lib/parsers/kbo";
-import type { GameDetail, ScheduleGame, ScoreboardGame } from "@/types/baseball";
+import type { GameDetail, MatchupAnalysis, ScheduleGame, ScoreboardGame } from "@/types/baseball";
 
 const KBO = "https://www.koreabaseball.com";
 const KBO_MOBILE = "https://m.koreabaseball.com";
@@ -282,6 +287,13 @@ async function enrichLiveGame(game: ScheduleGame): Promise<ScoreboardGame> {
       ? `${state?.INN_NO ?? ""}회${state?.TB_NM ?? ""}`
       : game.status;
 
+  let matchupAnalysis: MatchupAnalysis | undefined;
+  try {
+    matchupAnalysis = await getMatchupAnalysis(game);
+  } catch {
+    matchupAnalysis = undefined;
+  }
+
   return {
     ...game,
     awayScore: Number.isFinite(Number(state?.A_SCORE_CN)) ? Number(state?.A_SCORE_CN) : game.awayScore,
@@ -295,8 +307,80 @@ async function enrichLiveGame(game: ScheduleGame): Promise<ScoreboardGame> {
       .map((base) => `${base}루`),
     balls: game.balls ?? null,
     strikes: game.strikes ?? null,
-    outs: game.outs ?? null
+    outs: game.outs ?? null,
+    matchupAnalysis
   };
+}
+
+async function fetchTeamRecord(game: ScheduleGame) {
+  if (!game.gameId) return null;
+
+  const url = withBase("/ws/Schedule.asmx/GetTeamRecord");
+  const body = new URLSearchParams({
+    leId: "1",
+    srId: game.seriesId || "0",
+    seasonId: game.seasonId || game.date.slice(0, 4),
+    gameId: game.gameId,
+    groupSc: "SEASON"
+  });
+
+  return fetchFormJson<KboGridResponseLike>(url, body, {
+    referer: game.gameCenterUrl ?? withBase("/Schedule/GameCenter/Main.aspx")
+  });
+}
+
+async function fetchPitcherRecordAnalysis(game: ScheduleGame) {
+  if (!game.gameId || !game.awayStartingPitcherId || !game.homeStartingPitcherId) return null;
+
+  const url = withBase("/ws/Schedule.asmx/GetPitcherRecordAnalysis");
+  const body = new URLSearchParams({
+    leId: "1",
+    srId: game.seriesId || "0",
+    seasonId: game.seasonId || game.date.slice(0, 4),
+    awayTeamId: game.awayTeamCode || "",
+    awayPitId: game.awayStartingPitcherId,
+    homeTeamId: game.homeTeamCode || "",
+    homePitId: game.homeStartingPitcherId,
+    groupSc: "SEASON"
+  });
+
+  return fetchFormJson<KboGridResponseLike>(url, body, {
+    referer: game.gameCenterUrl ?? withBase("/Schedule/GameCenter/Main.aspx")
+  });
+}
+
+async function fetchTeamKeyPlayers(game: ScheduleGame) {
+  if (!game.gameId) return null;
+
+  const url = withBase("/ws/Schedule.asmx/GetTeamKeyPlayer");
+  const body = new URLSearchParams({
+    leId: "1",
+    srId: game.seriesId || "0",
+    seasonId: game.seasonId || game.date.slice(0, 4),
+    awayTeamId: game.awayTeamCode || "",
+    homeTeamId: game.homeTeamCode || ""
+  });
+
+  return fetchFormJson<KboGridResponseLike>(url, body, {
+    referer: game.gameCenterUrl ?? withBase("/Schedule/GameCenter/Main.aspx")
+  });
+}
+
+export async function getMatchupAnalysis(game: ScheduleGame): Promise<MatchupAnalysis> {
+  return getOrSetCache(`matchup:${game.gameId ?? game.id}`, 60, async () => {
+    const teams = [game.awayTeam, game.homeTeam];
+    const [teamRecord, pitcherRecord, keyPlayers] = await Promise.all([
+      fetchTeamRecord(game).catch(() => null),
+      fetchPitcherRecordAnalysis(game).catch(() => null),
+      fetchTeamKeyPlayers(game).catch(() => null)
+    ]);
+
+    return composeMatchupAnalysis(
+      teamRecord ? parseTeamPower(teamRecord) : [],
+      pitcherRecord ? parseStartingPitchers(pitcherRecord, teams) : [],
+      keyPlayers ? parseTeamKeyPlayers(keyPlayers, teams) : []
+    );
+  });
 }
 
 export async function getGameDetail(id: string): Promise<GameDetail> {
@@ -329,6 +413,7 @@ export async function getGameDetail(id: string): Promise<GameDetail> {
       fetchGround(baseGame).catch(() => null),
       fetchLiveText(baseGame).catch(() => null)
     ]);
+    const matchupAnalysis = scoreboard.matchupAnalysis ?? (await getMatchupAnalysis(baseGame).catch(() => undefined));
 
     const lineups = ground
       ? parseGroundLineups(ground, baseGame.awayTeam, baseGame.homeTeam)
@@ -349,6 +434,7 @@ export async function getGameDetail(id: string): Promise<GameDetail> {
       title: `${baseGame.awayTeam} vs ${baseGame.homeTeam}`,
       status: "ready",
       scoreboard,
+      matchupAnalysis,
       refreshedAt: new Date().toISOString(),
       innings: liveScore ? parseLiveScoreInnings(liveScore) : [],
       lineups,

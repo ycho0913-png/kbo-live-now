@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ErrorBox from "@/components/ErrorBox";
 import LoadingBox from "@/components/LoadingBox";
+import MatchupAnalysisPanel from "@/components/MatchupAnalysisPanel";
 import TeamBadge from "@/components/TeamBadge";
 import type { ApiResponse, GameDetail } from "@/types/baseball";
 
@@ -91,6 +92,8 @@ export default function GameDetailLive({ initialDetail }: Props) {
           </div>
         </div>
       </section>
+
+      <MatchupAnalysisPanel analysis={detail.matchupAnalysis ?? game?.matchupAnalysis} />
 
       <section className="rounded-lg border border-line bg-white p-4 shadow-soft sm:p-6">
         <h2 className="text-xl font-black text-ink">이닝별 점수</h2>
