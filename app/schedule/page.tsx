@@ -23,12 +23,12 @@ export default async function SchedulePage() {
   return (
     <main className="mx-auto grid max-w-6xl gap-10 px-4 py-10">
       <section>
-        <SectionTitle title="실시간 경기 현황" description="진행 중인 경기는 30초 서버 캐시로 갱신됩니다." />
+        <SectionTitle title="실시간 경기 현황" description="진행 중인 경기는 30초 서버 캐시와 상세 화면 15초 갱신으로 반영합니다." />
         {scoreboard.error ? <ErrorBox message={scoreboard.error} /> : <LiveScoreBoard games={scoreboard.data} />}
       </section>
 
       <section>
-        <SectionTitle title="오늘 경기 일정" description="오늘 열리는 경기와 시작 시간을 확인합니다." />
+        <SectionTitle title="오늘 경기 일정" description="경기를 누르면 선발투수, 이닝별 점수, 라인업, 문자중계 상세로 이동합니다." />
         {today.error ? <ErrorBox message={today.error} /> : <TodaySchedule games={today.data} />}
       </section>
 

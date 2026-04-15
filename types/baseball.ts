@@ -4,15 +4,28 @@ export type ApiResponse<T> =
 
 export interface ScheduleGame {
   id: string;
+  gameId?: string;
+  gameDate?: string;
   date: string;
   time: string;
   stadium: string;
   awayTeam: string;
   homeTeam: string;
+  awayTeamCode?: string;
+  homeTeamCode?: string;
   awayScore?: number | null;
   homeScore?: number | null;
+  awayStartingPitcher?: string;
+  homeStartingPitcher?: string;
   status: string;
+  statusCode?: string;
   broadcast?: string;
+  balls?: number | null;
+  strikes?: number | null;
+  outs?: number | null;
+  currentPitcher?: string;
+  gameCenterUrl?: string;
+  liveUrl?: string;
   sourceUrl: string;
 }
 
@@ -21,6 +34,9 @@ export interface ScoreboardGame extends ScheduleGame {
   balls?: number | null;
   strikes?: number | null;
   outs?: number | null;
+  bases?: string[];
+  currentBatter?: string;
+  currentPitcher?: string;
 }
 
 export interface StandingRow {
@@ -98,6 +114,7 @@ export interface GameDetail {
   title: string;
   status: "placeholder" | "ready";
   scoreboard?: ScoreboardGame;
+  refreshedAt?: string;
   innings: Array<{
     inning: number;
     away?: number | null;
@@ -105,11 +122,16 @@ export interface GameDetail {
   }>;
   lineups: Array<{
     team: string;
-    players: string[];
+    players: Array<{
+      order?: number | null;
+      name: string;
+      position?: string;
+    }>;
   }>;
   playByPlay: Array<{
     inning: string;
     text: string;
+    batter?: string;
     timestamp?: string;
   }>;
 }

@@ -15,7 +15,7 @@ export default function LiveScoreBoard({ games }: { games: ScoreboardGame[] }) {
           className="rounded-lg border border-line bg-white p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-[#ff6b00]"
         >
           <div className="flex items-center justify-between gap-3 text-xs font-bold text-[#ff6b00]">
-            <span>{game.status || game.inning || "경기 정보"}</span>
+            <span>{game.inning || game.status || "경기 정보"}</span>
             <span>{game.stadium || game.time}</span>
           </div>
           <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center sm:gap-3">
@@ -28,6 +28,13 @@ export default function LiveScoreBoard({ games }: { games: ScoreboardGame[] }) {
             <div className="min-w-0 justify-self-start">
               <TeamBadge team={game.homeTeam || "홈"} compact />
             </div>
+          </div>
+          <div className="mt-4 grid gap-1 text-xs font-bold text-ink/55">
+            <span>선발 {game.awayStartingPitcher || "발표 전"} vs {game.homeStartingPitcher || "발표 전"}</span>
+            <span>
+              {game.bases?.length ? `주자 ${game.bases.join(", ")}` : "주자 정보 대기"} ·
+              B {game.balls ?? "-"} S {game.strikes ?? "-"} O {game.outs ?? "-"}
+            </span>
           </div>
         </Link>
       ))}

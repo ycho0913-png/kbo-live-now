@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type {
+  GameDetail,
   HitterStatRow,
   PitcherStatRow,
   ScheduleGame,
@@ -26,6 +27,49 @@ type KboGridRow = {
 
 type KboGridResponse = {
   rows?: KboGridRow[];
+};
+
+export type KboGameListRow = Record<string, string | number | boolean | null | undefined>;
+
+export type KboGameListResponse = {
+  game?: KboGameListRow[];
+};
+
+type KboLiveGridResponse = {
+  rows?: Array<{
+    row?: Array<{
+      Text?: string;
+      Class?: string | null;
+    }>;
+  }>;
+};
+
+type KboLiveTextResponse = {
+  listInnTb?: Array<{
+    INN_NO?: string | number;
+    TB_NM?: string;
+    T_NM?: string;
+    listBatOrder?: Array<{
+      BAT_ORDER_NO?: string | number;
+      BAT_P_NM?: string;
+      listData?: Array<{
+        LIVETEXT_IF?: string;
+        TEXTSTYLE_SC?: string;
+      }>;
+    }>;
+  }>;
+};
+
+type KboLiveScoreResponse = {
+  scoreTable?: string;
+};
+
+type KboGroundResponse = {
+  listDefense?: Array<{ P_NM?: string; POS_SC?: string | number }>;
+  listHitter?: Array<{ P_NM?: string; HIT_DIREC_SC?: string | number }>;
+  listRunner?: Array<{ P_NM?: string; POS_SC?: string | number }>;
+  listBallCnt?: Array<{ BALL_CN?: string | number; STRIKE_CN?: string | number; OUT_CN?: string | number }>;
+  listNextHitter?: Array<{ BAT_ORDER_NO?: string | number; P_NM?: string }>;
 };
 
 export function normalizeText(value: string | null | undefined): string {
@@ -91,6 +135,34 @@ function valueByHeader(row: TableRow, headerCandidates: string[], fallbackIndex:
 
 function gameId(date: string, awayTeam: string, homeTeam: string, index: number) {
   return `${date}-${awayTeam || "away"}-${homeTeam || "home"}-${index}`.replace(/[^\w가-힣-]+/g, "-");
+}
+
+function gameCenterUrl(gameDate: string, kboGameId: string, section = "START_PIT") {
+  if (!gameDate || !kboGameId) return undefined;
+  return `https://www.koreabaseball.com/Schedule/GameCenter/Main.aspx?gameDate=${gameDate}&gameId=${kboGameId}&section=${section}`;
+}
+
+function liveUrl(gameIdValue: string, srId: string | number | null | undefined = 0) {
+  if (!gameIdValue) return undefined;
+  return `https://m.koreabaseball.com/Kbo/Live/Live.aspx?p_le_id=1&p_sr_id=${srId ?? 0}&p_g_id=${gameIdValue}`;
+}
+
+function statusName(statusCode: string | number | null | undefined, fallback?: string) {
+  const code = String(statusCode ?? "");
+  if (code === "1") return "경기전";
+  if (code === "2") return "진행중";
+  if (code === "3") return "종료";
+  if (code === "4") return "취소";
+  if (code === "5") return "서스펜디드";
+  return normalizeText(fallback) || "상태 확인중";
+}
+
+function rawString(row: KboGameListRow, key: string): string {
+  return normalizeText(String(row[key] ?? ""));
+}
+
+function rawNumber(row: KboGameListRow, key: string): number | null {
+  return toNumber(row[key] as string | number | null | undefined);
 }
 
 function splitMatchup(text: string): Pick<ScheduleGame, "awayTeam" | "homeTeam" | "awayScore" | "homeScore"> {
@@ -193,9 +265,16 @@ export function parseScheduleGrid(
       const note = textFromHtml(cells.at(-1)?.Text);
       const broadcast = textFromHtml(cells.find((cell) => !cell.Class && /TV|SPO|MBC|KBS|KN|T/.test(textFromHtml(cell.Text)))?.Text);
       const status = note && note !== "-" ? note : teams.awayScore !== null || teams.homeScore !== null ? "종료" : "예정";
+      const relayHtml = cells.find((cell) => cell.Class === "relay")?.Text ?? "";
+      const gameIdMatch = relayHtml.match(/gameId=([^&'"]+)/);
+      const gameDateMatch = relayHtml.match(/gameDate=([^&'"]+)/);
+      const kboGameId = gameIdMatch?.[1];
+      const gameDate = gameDateMatch?.[1];
 
       return {
-        id: gameId(currentDate, teams.awayTeam, teams.homeTeam, index),
+        id: kboGameId || gameId(currentDate, teams.awayTeam, teams.homeTeam, index),
+        gameId: kboGameId,
+        gameDate,
         date: currentDate,
         time: textFromHtml(timeCell?.Text),
         stadium,
@@ -205,22 +284,168 @@ export function parseScheduleGrid(
         homeScore: teams.homeScore,
         status,
         broadcast,
+        gameCenterUrl: gameDate && kboGameId ? gameCenterUrl(gameDate, kboGameId) : undefined,
+        liveUrl: kboGameId ? liveUrl(kboGameId) : undefined,
         sourceUrl
       };
     })
     .filter(Boolean) as ScheduleGame[];
 }
 
-export function parseScoreboard(html: string, date: string, sourceUrl: string): ScoreboardGame[] {
-  const schedule = parseSchedule(html, date, sourceUrl);
+export function parseMainGameList(payload: KboGameListResponse, sourceUrl: string): ScheduleGame[] {
+  return (payload.game ?? []).map((row, index) => {
+    const gameDate = rawString(row, "G_DT");
+    const date = gameDate
+      ? `${gameDate.slice(0, 4)}-${gameDate.slice(4, 6)}-${gameDate.slice(6, 8)}`
+      : "";
+    const kboGameId = rawString(row, "G_ID");
+    const srId = typeof row.SR_ID === "boolean" ? 0 : row.SR_ID ?? 0;
+    const awayScore = rawNumber(row, "T_SCORE_CN");
+    const homeScore = rawNumber(row, "B_SCORE_CN");
+    const code = rawString(row, "GAME_STATE_SC");
 
-  return schedule.map((game) => ({
-    ...game,
-    inning: /종료|취소|예정/.test(game.status) ? game.status : game.status || "진행",
-    balls: null,
-    strikes: null,
-    outs: null
-  }));
+    return {
+      id: kboGameId || gameId(date, rawString(row, "AWAY_NM"), rawString(row, "HOME_NM"), index),
+      gameId: kboGameId,
+      gameDate,
+      date,
+      time: rawString(row, "G_TM"),
+      stadium: rawString(row, "S_NM"),
+      awayTeam: rawString(row, "AWAY_NM"),
+      homeTeam: rawString(row, "HOME_NM"),
+      awayTeamCode: rawString(row, "AWAY_ID"),
+      homeTeamCode: rawString(row, "HOME_ID"),
+      awayScore,
+      homeScore,
+      awayStartingPitcher: rawString(row, "T_PIT_P_NM"),
+      homeStartingPitcher: rawString(row, "B_PIT_P_NM"),
+      status: statusName(code, rawString(row, "GAME_SC_NM")),
+      statusCode: code,
+      broadcast: rawString(row, "TV_IF"),
+      balls: rawNumber(row, "BALL_CN"),
+      strikes: rawNumber(row, "STRIKE_CN"),
+      outs: rawNumber(row, "OUT_CN"),
+      currentPitcher: rawString(row, "B_P_NM") || rawString(row, "T_P_NM"),
+      gameCenterUrl: gameCenterUrl(gameDate, kboGameId, code === "1" ? "START_PIT" : code === "3" ? "REVIEW" : "KEY_PIT"),
+      liveUrl: liveUrl(kboGameId, srId),
+      sourceUrl
+    };
+  });
+}
+
+export function parseScoreboard(html: string, date: string, sourceUrl: string): ScoreboardGame[] {
+  const $ = load(html);
+  const cards = $(".smsScore");
+  if (!cards.length) {
+    const schedule = parseSchedule(html, date, sourceUrl);
+    return schedule.map((game) => ({
+      ...game,
+      inning: /종료|취소|예정/.test(game.status) ? game.status : game.status || "진행",
+      balls: null,
+      strikes: null,
+      outs: null
+    }));
+  }
+
+  return cards
+    .map((index, card): ScoreboardGame => {
+      const awayTeam = normalizeText($(card).find(".leftTeam .teamT").text());
+      const homeTeam = normalizeText($(card).find(".rightTeam .teamT").text());
+      const status = normalizeText($(card).find(".flag").text()) || "상태 확인중";
+      const placeText = normalizeText($(card).find(".place").text());
+      const placeMatch = placeText.match(/^(.+?)\s+(\d{1,2}:\d{2})/);
+      const awayScore = toNumber($(card).find(".leftTeam .score").text());
+      const homeScore = toNumber($(card).find(".rightTeam .score").text());
+      const scoreRows = $(card).find(".tScore tbody tr");
+      const inningCells = scoreRows
+        .first()
+        .find("td")
+        .map((_, cell) => normalizeText($(cell).text()))
+        .get();
+
+      return {
+        id: gameId(date, awayTeam, homeTeam, index),
+        date,
+        time: placeMatch?.[2] ?? "",
+        stadium: placeMatch?.[1] ?? placeText,
+        awayTeam,
+        homeTeam,
+        awayScore,
+        homeScore,
+        status,
+        inning: status,
+        balls: null,
+        strikes: null,
+        outs: null,
+        innings: inningCells,
+        sourceUrl
+      } as ScoreboardGame;
+    })
+    .get();
+}
+
+export function parseLiveScoreInnings(payload: KboLiveScoreResponse): GameDetail["innings"] {
+  if (!payload.scoreTable) return [];
+
+  try {
+    const table = JSON.parse(payload.scoreTable) as KboLiveGridResponse;
+    const rows = table.rows ?? [];
+    const away = rows[0]?.row ?? [];
+    const home = rows[1]?.row ?? [];
+    const max = Math.max(away.length, home.length);
+
+    return Array.from({ length: max }, (_, index) => ({
+      inning: index + 1,
+      away: toNumber(textFromHtml(away[index]?.Text)),
+      home: toNumber(textFromHtml(home[index]?.Text))
+    })).filter((row) => row.away !== null || row.home !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function parseGroundLineups(payload: KboGroundResponse, awayTeam: string, homeTeam: string): GameDetail["lineups"] {
+  const defense = (payload.listDefense ?? [])
+    .map((player) => ({
+      order: null,
+      name: normalizeText(player.P_NM),
+      position: player.POS_SC ? `${player.POS_SC}` : undefined
+    }))
+    .filter((player) => player.name);
+
+  const nextHitters = (payload.listNextHitter ?? [])
+    .map((player) => ({
+      order: toNumber(player.BAT_ORDER_NO),
+      name: normalizeText(player.P_NM),
+      position: "다음 타자"
+    }))
+    .filter((player) => player.name);
+
+  return [
+    { team: homeTeam || "수비팀", players: defense },
+    { team: awayTeam || "공격팀", players: nextHitters }
+  ].filter((lineup) => lineup.players.length);
+}
+
+export function parseLiveText(payload: KboLiveTextResponse): GameDetail["playByPlay"] {
+  const result: GameDetail["playByPlay"] = [];
+
+  for (const inning of payload.listInnTb ?? []) {
+    const inningLabel = `${inning.INN_NO ?? ""}회${inning.TB_NM ?? ""}`;
+    for (const bat of inning.listBatOrder ?? []) {
+      for (const item of bat.listData ?? []) {
+        const text = textFromHtml(item.LIVETEXT_IF);
+        if (!text) continue;
+        result.push({
+          inning: inningLabel,
+          batter: normalizeText(bat.BAT_P_NM),
+          text
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 export function parseStandings(html: string): StandingRow[] {

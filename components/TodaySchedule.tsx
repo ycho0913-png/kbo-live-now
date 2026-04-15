@@ -28,7 +28,12 @@ export default function TodaySchedule({ games }: { games: ScheduleGame[] }) {
               <span className="text-[#ff6b00]">vs</span>
               <TeamBadge team={game.homeTeam || "홈팀"} />
             </div>
-            <p className="mt-3 text-sm text-ink/60">{game.status || "예정"}</p>
+            <div className="mt-3 grid gap-1 text-sm text-ink/60">
+              <p>{game.status || "예정"} · 클릭하면 실시간 게임센터로 이동합니다.</p>
+              <p className="font-bold text-ink/70">
+                선발: {game.awayStartingPitcher || "발표 전"} vs {game.homeStartingPitcher || "발표 전"}
+              </p>
+            </div>
           </Link>
         );
       })}
