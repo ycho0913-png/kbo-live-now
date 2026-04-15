@@ -56,13 +56,13 @@ function mergeNews(...groups: Awaited<ReturnType<typeof getNewsByQuery>>[]) {
 }
 
 export async function getBaseballNews() {
-  return getNewsByQuery("news:baseball", "프로야구 KBO");
+  return getNewsByQuery("news:baseball:v2", "프로야구 KBO");
 }
 
 export async function getSamsungLionsNews() {
   const [daum, naver] = await Promise.all([
-    getDaumNewsByQuery("news:daum:samsung-lions", "삼성 라이온즈"),
-    getNewsByQuery("news:samsung-lions:v2", "삼성라이온즈 삼성 라이온즈 야구")
+    getDaumNewsByQuery("news:daum:samsung-lions:v2", "삼성 라이온즈"),
+    getNewsByQuery("news:samsung-lions:v3", "삼성 라이온즈 야구")
   ]);
 
   return mergeNews(daum, naver).filter((item) => /삼성|라이온즈|라팍/.test(item.title));
