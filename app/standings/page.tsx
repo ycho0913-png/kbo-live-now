@@ -9,8 +9,8 @@ export default async function StandingsPage() {
 
     return (
       <main className="mx-auto max-w-6xl px-4 py-10">
-        <SectionTitle title="팀 순위" description="KBO 공식 팀 순위를 표시합니다." />
-        <StandingsTable rows={standings} />
+        <SectionTitle title="팀 순위" description="KBO 공식 팀 순위를 1위부터 10위까지 표시합니다." />
+        <StandingsTable rows={standings.slice(0, 10)} />
       </main>
     );
   } catch (error) {

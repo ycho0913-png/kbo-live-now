@@ -451,6 +451,8 @@ export function parseLiveText(payload: KboLiveTextResponse): GameDetail["playByP
 export function parseStandings(html: string): StandingRow[] {
   const rows = getTableRows(html, [".tData", ".tbl", ".tbl-type06"]);
 
+  const seen = new Set<string>();
+
   return rows
     .map((row): StandingRow | null => {
       const team = valueByHeader(row, ["팀", "Team"], 1);
@@ -468,7 +470,15 @@ export function parseStandings(html: string): StandingRow[] {
         streak: valueByHeader(row, ["연속", "Streak"], row.cells.length - 1)
       };
     })
-    .filter(Boolean) as StandingRow[];
+    .filter((row): row is StandingRow => {
+      if (!row) return false;
+      if (!row.rank || row.rank < 1 || row.rank > 10) return false;
+      if (seen.has(row.team)) return false;
+      seen.add(row.team);
+      return true;
+    })
+    .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
+    .slice(0, 10);
 }
 
 export function parseHitterStats(html: string): HitterStatRow[] {
