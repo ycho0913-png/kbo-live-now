@@ -180,3 +180,30 @@ export interface GameDetail {
     timestamp?: string;
   }>;
 }
+
+export interface PlayerSearchResult {
+  type: "player";
+  name: string;
+  team: string;
+  role: "타자" | "투수" | "타자/투수";
+  summary: string;
+  hitter?: HitterStatRow;
+  pitcher?: PitcherStatRow;
+}
+
+export interface TeamSearchResult {
+  type: "team";
+  team: string;
+  summary: string;
+  standing?: StandingRow;
+  hitting?: TeamHittingRow;
+  pitching?: TeamPitchingRow;
+  games: ScoreboardGame[];
+  upcomingGames: ScheduleGame[];
+}
+
+export interface SearchResponse {
+  query: string;
+  teams: TeamSearchResult[];
+  players: PlayerSearchResult[];
+}

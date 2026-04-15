@@ -1,4 +1,5 @@
 import Link from "next/link";
+import HeaderSearch from "@/components/HeaderSearch";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -13,24 +14,28 @@ const navItems = [
 export default function Header() {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/" className="flex items-center gap-3 text-xl font-black tracking-normal text-ink">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-[#ff6b00] text-sm text-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
+        <Link href="/" className="flex min-w-0 items-center gap-3 text-lg font-black tracking-normal text-ink sm:text-xl">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#ff6b00] text-sm text-white">
             K
           </span>
-          <span>KBO LIVE NOW</span>
+          <span className="truncate">KBO LIVE NOW</span>
         </Link>
-        <nav className="hidden max-w-full gap-2 overflow-x-auto text-sm font-semibold text-ink/60 sm:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="whitespace-nowrap rounded-md px-3 py-2 hover:bg-[#ff6b00] hover:text-white"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+
+        <div className="flex items-center gap-2">
+          <nav className="hidden max-w-full gap-2 overflow-x-auto text-sm font-semibold text-ink/60 lg:flex">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="whitespace-nowrap rounded-md px-3 py-2 hover:bg-[#ff6b00] hover:text-white"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <HeaderSearch />
+        </div>
       </div>
     </header>
   );
