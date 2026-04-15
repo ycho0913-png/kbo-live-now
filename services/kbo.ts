@@ -20,6 +20,7 @@ import type { GameDetail, ScheduleGame, ScoreboardGame } from "@/types/baseball"
 
 const KBO = "https://www.koreabaseball.com";
 const KBO_MOBILE = "https://m.koreabaseball.com";
+const KST_TIME_ZONE = "Asia/Seoul";
 
 function withBase(path: string) {
   return `${KBO}${path}`;
@@ -29,16 +30,45 @@ function withMobile(path: string) {
   return `${KBO_MOBILE}${path}`;
 }
 
-function ymd(date = dayjs().format("YYYY-MM-DD")) {
-  return dayjs(date).format("YYYYMMDD");
+export function getKstToday() {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: KST_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
 }
 
-async function getKboGameList(date = dayjs().format("YYYY-MM-DD")) {
+function normalizeScheduleDate(date?: string | null) {
+  const parsed = dayjs(date || getKstToday());
+  return parsed.isValid() ? parsed.format("YYYY-MM-DD") : getKstToday();
+}
+
+function ymd(date?: string | null) {
+  return dayjs(normalizeScheduleDate(date)).format("YYYYMMDD");
+}
+
+function addDays(date: string, days: number) {
+  return dayjs(date).add(days, "day").format("YYYY-MM-DD");
+}
+
+function sortSchedule(games: ScheduleGame[]) {
+  return [...games].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+}
+
+async function getKboGameList(date = getKstToday()) {
+  const normalizedDate = normalizeScheduleDate(date);
   const url = withBase("/ws/Main.asmx/GetKboGameList");
   const body = new URLSearchParams({
     leId: "1",
     srId: "0,1,3,4,5,6,7,9",
-    date: ymd(date)
+    date: ymd(normalizedDate)
   });
 
   return fetchFormJson<KboGameListResponse>(url, body, {
@@ -46,11 +76,13 @@ async function getKboGameList(date = dayjs().format("YYYY-MM-DD")) {
   });
 }
 
-export async function getSchedule(date = dayjs().format("YYYY-MM-DD")) {
-  return getOrSetCache(`schedule:${date}`, 60, async () => {
+export async function getSchedule(date = getKstToday()) {
+  const normalizedDate = normalizeScheduleDate(date);
+
+  return getOrSetCache(`schedule:${normalizedDate}`, 60, async () => {
     try {
       const url = withBase("/ws/Main.asmx/GetKboGameList");
-      const data = await getKboGameList(date);
+      const data = await getKboGameList(normalizedDate);
       const parsed = parseMainGameList(data, url);
       if (parsed.length) return parsed;
     } catch {
@@ -61,8 +93,8 @@ export async function getSchedule(date = dayjs().format("YYYY-MM-DD")) {
     const body = new URLSearchParams({
       leId: "1",
       srIdList: "0,9,6",
-      seasonId: dayjs(date).format("YYYY"),
-      gameMonth: dayjs(date).format("MM"),
+      seasonId: dayjs(normalizedDate).format("YYYY"),
+      gameMonth: dayjs(normalizedDate).format("MM"),
       teamId: ""
     });
     const response = await fetch(url, {
@@ -81,31 +113,36 @@ export async function getSchedule(date = dayjs().format("YYYY-MM-DD")) {
 
     if (response.ok) {
       const data = await response.json();
-      const parsed = parseScheduleGrid(data, date, url);
+      const parsed = parseScheduleGrid(data, normalizedDate, url);
       if (parsed.length) return parsed;
     }
 
-    const htmlUrl = withBase(`/Schedule/Schedule.aspx?seriesId=0,9&date=${date}`);
+    const htmlUrl = withBase(`/Schedule/Schedule.aspx?seriesId=0,9&date=${normalizedDate}`);
     const html = await fetchHtml(htmlUrl);
-    return parseSchedule(html, date, htmlUrl);
+    return parseSchedule(html, normalizedDate, htmlUrl);
   });
 }
 
-export async function getUpcomingSchedule(days = 14) {
+export async function getUpcomingSchedule(days = 14, startDate = getKstToday()) {
   const normalizedDays = Math.min(Math.max(days, 1), 31);
+  const normalizedStart = normalizeScheduleDate(startDate);
 
-  return getOrSetCache(`schedule:upcoming:${normalizedDays}`, 60, async () => {
+  return getOrSetCache(`schedule:upcoming:${normalizedStart}:${normalizedDays}`, 60, async () => {
     const dates = Array.from({ length: normalizedDays }, (_, index) =>
-      dayjs().add(index, "day").format("YYYY-MM-DD")
+      addDays(normalizedStart, index)
     );
     const schedules = await Promise.all(dates.map((date) => getSchedule(date)));
 
-    return schedules.flat();
+    return sortSchedule(
+      schedules
+        .flat()
+        .filter((game) => game.date >= normalizedStart && game.date <= addDays(normalizedStart, normalizedDays - 1))
+    );
   });
 }
 
 export async function getScoreboard() {
-  const date = dayjs().format("YYYY-MM-DD");
+  const date = getKstToday();
 
   return getOrSetCache("scoreboard", 30, async () => {
     try {
@@ -269,7 +306,7 @@ export async function getGameDetail(id: string): Promise<GameDetail> {
     const gameDate = decodedId.match(/^(\d{8})/)?.[1];
     const date = gameDate
       ? `${gameDate.slice(0, 4)}-${gameDate.slice(4, 6)}-${gameDate.slice(6, 8)}`
-      : dayjs().format("YYYY-MM-DD");
+      : getKstToday();
     const schedule = await getSchedule(date);
     const baseGame =
       schedule.find((game) => game.gameId === decodedId || game.id === decodedId) ?? schedule[0];

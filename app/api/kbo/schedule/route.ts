@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import dayjs from "dayjs";
-import { getSchedule, getUpcomingSchedule } from "@/services/kbo";
+import { getKstToday, getSchedule, getUpcomingSchedule } from "@/services/kbo";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get("date") || dayjs().format("YYYY-MM-DD");
+    const date = searchParams.get("date") || getKstToday();
     const days = Number(searchParams.get("days") ?? "1");
-    const data = days > 1 ? await getUpcomingSchedule(days) : await getSchedule(date);
+    const data = days > 1 ? await getUpcomingSchedule(days, date) : await getSchedule(date);
     return NextResponse.json({ ok: true, data, meta: { date, days: days > 1 ? days : 1 } });
   } catch (error) {
     return NextResponse.json(
