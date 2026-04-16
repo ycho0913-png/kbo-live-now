@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import BaseballField from "@/components/BaseballField";
 import ErrorBox from "@/components/ErrorBox";
 import LoadingBox from "@/components/LoadingBox";
 import MatchupAnalysisPanel from "@/components/MatchupAnalysisPanel";
@@ -155,6 +156,9 @@ export default function GameDetailLive({ initialDetail }: Props) {
 
         <div className="rounded-lg border border-line bg-white p-4 shadow-soft sm:p-6">
           <h2 className="text-xl font-black text-ink">문자중계</h2>
+          <div className="mt-4">
+            <BaseballField situation={detail.situation} />
+          </div>
           {detail.playByPlay.length ? (
             <ul className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1">
               {detail.playByPlay.slice(0, 80).map((play, index) => (

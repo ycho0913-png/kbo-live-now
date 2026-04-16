@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type {
   GameDetail,
+  GameSituation,
   HitterStatRow,
   KeyPlayerRow,
   MatchupAnalysis,
@@ -438,6 +439,37 @@ export function parseGroundLineups(payload: KboGroundResponse, awayTeam: string,
     { team: homeTeam || "수비팀", players: defense },
     { team: awayTeam || "공격팀", players: nextHitters }
   ].filter((lineup) => lineup.players.length);
+}
+
+function normalizeBase(value: string | number | null | undefined): 1 | 2 | 3 | null {
+  const text = normalizeText(`${value ?? ""}`);
+  if (text.includes("1") || text.includes("一") || text.includes("1루")) return 1;
+  if (text.includes("2") || text.includes("二") || text.includes("2루")) return 2;
+  if (text.includes("3") || text.includes("三") || text.includes("3루")) return 3;
+  return null;
+}
+
+export function parseGameSituation(payload: KboGroundResponse): GameSituation {
+  const runners = (payload.listRunner ?? [])
+    .map((runner): GameSituation["runners"][number] | null => {
+      const base = normalizeBase(runner.POS_SC);
+      if (!base) return null;
+
+      return {
+        base,
+        name: normalizeText(runner.P_NM) || undefined
+      };
+    })
+    .filter((runner): runner is GameSituation["runners"][number] => Boolean(runner));
+
+  const count = payload.listBallCnt?.[0];
+
+  return {
+    runners,
+    balls: toNumber(count?.BALL_CN),
+    strikes: toNumber(count?.STRIKE_CN),
+    outs: toNumber(count?.OUT_CN)
+  };
 }
 
 export function parseLiveText(payload: KboLiveTextResponse): GameDetail["playByPlay"] {

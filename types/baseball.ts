@@ -159,6 +159,7 @@ export interface GameDetail {
   status: "placeholder" | "ready";
   scoreboard?: ScoreboardGame;
   matchupAnalysis?: MatchupAnalysis;
+  situation?: GameSituation;
   refreshedAt?: string;
   innings: Array<{
     inning: number;
@@ -179,6 +180,20 @@ export interface GameDetail {
     batter?: string;
     timestamp?: string;
   }>;
+}
+
+export interface BaseRunner {
+  base: 1 | 2 | 3;
+  name?: string;
+}
+
+export interface GameSituation {
+  runners: BaseRunner[];
+  balls: number | null;
+  strikes: number | null;
+  outs: number | null;
+  status?: string;
+  inning?: string;
 }
 
 export interface PlayerSearchResult {

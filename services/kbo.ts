@@ -5,6 +5,7 @@ import {
   type KboGridResponseLike,
   type KboGameListResponse,
   composeMatchupAnalysis,
+  parseGameSituation,
   parseGroundLineups,
   parseHitterStats,
   parseLiveScoreInnings,
@@ -21,7 +22,7 @@ import {
   parseTeamHittingStats,
   parseTeamPitchingStats
 } from "@/lib/parsers/kbo";
-import type { GameDetail, MatchupAnalysis, ScheduleGame, ScoreboardGame } from "@/types/baseball";
+import type { GameDetail, GameSituation, MatchupAnalysis, ScheduleGame, ScoreboardGame } from "@/types/baseball";
 
 const KBO = "https://www.koreabaseball.com";
 const KBO_MOBILE = "https://m.koreabaseball.com";
@@ -383,6 +384,26 @@ export async function getMatchupAnalysis(game: ScheduleGame): Promise<MatchupAna
   });
 }
 
+function fallbackSituation(scoreboard: ScoreboardGame): GameSituation {
+  const runners = (scoreboard.bases ?? [])
+    .map((baseText) => {
+      if (baseText.includes("1")) return { base: 1 as const };
+      if (baseText.includes("2")) return { base: 2 as const };
+      if (baseText.includes("3")) return { base: 3 as const };
+      return null;
+    })
+    .filter((runner): runner is { base: 1 | 2 | 3 } => Boolean(runner));
+
+  return {
+    runners,
+    balls: scoreboard.balls ?? null,
+    strikes: scoreboard.strikes ?? null,
+    outs: scoreboard.outs ?? null,
+    status: scoreboard.status,
+    inning: scoreboard.inning
+  };
+}
+
 export async function getGameDetail(id: string): Promise<GameDetail> {
   const decodedId = decodeURIComponent(id);
 
@@ -414,6 +435,9 @@ export async function getGameDetail(id: string): Promise<GameDetail> {
       fetchLiveText(baseGame).catch(() => null)
     ]);
     const matchupAnalysis = scoreboard.matchupAnalysis ?? (await getMatchupAnalysis(baseGame).catch(() => undefined));
+    const situation = ground ? parseGameSituation(ground) : fallbackSituation(scoreboard);
+    situation.status = scoreboard.status;
+    situation.inning = scoreboard.inning;
 
     const lineups = ground
       ? parseGroundLineups(ground, baseGame.awayTeam, baseGame.homeTeam)
@@ -435,6 +459,7 @@ export async function getGameDetail(id: string): Promise<GameDetail> {
       status: "ready",
       scoreboard,
       matchupAnalysis,
+      situation,
       refreshedAt: new Date().toISOString(),
       innings: liveScore ? parseLiveScoreInnings(liveScore) : [],
       lineups,
