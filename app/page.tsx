@@ -52,19 +52,19 @@ export default async function HomePage() {
   ]);
 
   const dashboardStats = [
-    { label: "오늘 경기", value: schedule.error ? "-" : schedule.data.length, tone: "bg-white text-ink" },
-    { label: "실시간 경기", value: scoreboard.error ? "-" : scoreboard.data.length, tone: "bg-red-50 text-red-700" },
-    { label: "추후 일정", value: upcoming.error ? "-" : upcoming.data.length, tone: "bg-yellow-50 text-yellow-800" },
-    { label: "뉴스", value: news.error ? "-" : news.data.length, tone: "bg-sky-50 text-sky-800" }
+    { label: "오늘 경기", value: schedule.error ? "-" : schedule.data.length, tone: "bg-[#0b4ea2] text-white", hint: "KBO 일정" },
+    { label: "실시간 경기", value: scoreboard.error ? "-" : scoreboard.data.length, tone: "bg-[#ff6b00] text-white", hint: "Live now" },
+    { label: "추후 일정", value: upcoming.error ? "-" : upcoming.data.length, tone: "bg-[#116149] text-white", hint: "7일 보기" },
+    { label: "뉴스", value: news.error ? "-" : news.data.length, tone: "bg-white text-ink", hint: "오늘 소식" }
   ];
 
   const quickLinks = [
-    { href: "/schedule", label: "경기 일정" },
-    { href: "/lions", label: "삼성 방" },
-    { href: "/players", label: "선수 기록" },
-    { href: "/teams", label: "팀 기록" },
-    { href: "/standings", label: "팀 순위" },
-    { href: "/news", label: "야구 뉴스" }
+    { href: "/schedule", label: "경기 일정", tone: "border-[#0b4ea2]/20 bg-[#d7e8ff] text-[#0b4ea2]" },
+    { href: "/lions", label: "삼성 방", tone: "border-[#0b4ea2]/20 bg-white text-[#0b4ea2]" },
+    { href: "/players", label: "선수 기록", tone: "border-[#ff6b00]/20 bg-orange-50 text-[#b54700]" },
+    { href: "/teams", label: "팀 기록", tone: "border-[#116149]/20 bg-emerald-50 text-[#116149]" },
+    { href: "/standings", label: "팀 순위", tone: "border-[#ff6b00]/20 bg-white text-[#b54700]" },
+    { href: "/news", label: "야구 뉴스", tone: "border-[#116149]/20 bg-white text-[#116149]" }
   ];
   const leaderTeam = !standings.error && standings.data[0] ? standings.data[0].team : "순위 집계 중";
   const firstNews = !news.error && news.data[0] ? news.data[0] : null;
@@ -74,10 +74,21 @@ export default async function HomePage() {
   return (
     <main className="pb-24">
       <section className="overflow-hidden px-3 py-5 text-ink sm:px-4 sm:py-8">
-        <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1fr_390px] lg:items-end">
+        <div className="mx-auto max-w-6xl overflow-hidden rounded-lg border border-white bg-[linear-gradient(135deg,#ffffff_0%,#eef6ff_42%,#fff5ec_100%)] shadow-soft">
+          <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[1fr_390px] lg:items-end lg:p-8">
           <div>
-            <p className="text-sm font-bold uppercase tracking-normal text-[#ff6b00]">Live Archive</p>
-            <h1 className="mt-2 max-w-3xl text-2xl font-black italic leading-tight text-ink sm:mt-3 sm:text-6xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="rounded-md bg-[#ff6b00] px-3 py-1 text-xs font-black uppercase tracking-normal text-white">
+                Live Archive
+              </p>
+              <span className="rounded-md bg-white px-3 py-1 text-xs font-black text-[#0b4ea2] shadow-soft">
+                오늘의 야구 대시보드
+              </span>
+              <span className="rounded-md bg-[#116149] px-3 py-1 text-xs font-black text-white">
+                실시간 업데이트
+              </span>
+            </div>
+            <h1 className="mt-4 max-w-3xl text-3xl font-black italic leading-tight text-ink sm:mt-5 sm:text-6xl">
               경기부터 기록까지 오늘 볼 야구를 한 화면에.
             </h1>
             <p className="mt-3 max-w-2xl text-sm font-medium text-ink/65 sm:mt-4 sm:text-base">
@@ -88,7 +99,7 @@ export default async function HomePage() {
                 <a
                   key={link.href}
                   href={link.href}
-                  className="rounded-md border border-line bg-white px-2 py-2 text-center text-xs font-bold text-ink shadow-soft hover:bg-[#ff6b00] hover:text-white sm:px-3 sm:text-sm"
+                  className={`rounded-md border px-2 py-2 text-center text-xs font-black shadow-soft hover:bg-[#ff6b00] hover:text-white sm:px-3 sm:text-sm ${link.tone}`}
                 >
                   {link.label}
                 </a>
@@ -98,11 +109,15 @@ export default async function HomePage() {
 
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {dashboardStats.map((item) => (
-              <div key={item.label} className={`rounded-lg border border-line p-3 shadow-soft sm:p-4 ${item.tone}`}>
-                <p className="text-[11px] font-bold opacity-70 sm:text-sm">{item.label}</p>
+              <div key={item.label} className={`rounded-lg border border-white/60 p-3 shadow-soft sm:p-4 ${item.tone}`}>
+                <p className="text-[11px] font-bold opacity-80 sm:text-sm">{item.label}</p>
                 <strong className="mt-1 block text-xl font-black sm:mt-2 sm:text-3xl">{item.value}</strong>
+                <span className="mt-2 inline-flex rounded-md bg-white/18 px-2 py-1 text-[10px] font-black opacity-85">
+                  {item.hint}
+                </span>
               </div>
             ))}
+          </div>
           </div>
         </div>
       </section>
