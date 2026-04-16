@@ -1,0 +1,27 @@
+{
+  "name": "KBO Live Now",
+  "short_name": "KBO NOW",
+  "description": "KBO 실시간 경기, 일정, 순위, 기록, 뉴스를 한 화면에서 확인하는 비공식 팬 서비스",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#0b4ea2",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/kbo-live-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/kbo-live-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["sports", "news"],
+  "lang": "ko-KR"
+}
