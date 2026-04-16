@@ -3,6 +3,7 @@ import LiveScoreBoard from "@/components/LiveScoreBoard";
 import NewsList from "@/components/NewsList";
 import SectionTitle from "@/components/SectionTitle";
 import StatTable from "@/components/StatTable";
+import SamsungPulse from "@/components/SamsungPulse";
 import TeamBadge from "@/components/TeamBadge";
 import TodaySchedule from "@/components/TodaySchedule";
 import UpcomingSchedule from "@/components/UpcomingSchedule";
@@ -127,6 +128,13 @@ export default async function LionsPage() {
       </section>
 
       <div className="mx-auto grid max-w-6xl gap-8 px-3 py-8 sm:px-4 sm:py-10">
+        <SamsungPulse
+          focusGame={focusGame}
+          hitting={samsungHitters[0]}
+          pitching={samsungPitchers[0]}
+          news={news.error ? [] : news.data}
+        />
+
         <section>
           <SectionTitle
             title="삼성 실시간 스코어보드"

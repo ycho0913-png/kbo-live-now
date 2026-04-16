@@ -7,6 +7,7 @@ import NewsList from "@/components/NewsList";
 import ErrorBox from "@/components/ErrorBox";
 import StatTable from "@/components/StatTable";
 import TeamBadge from "@/components/TeamBadge";
+import HomeSnapshot from "@/components/HomeSnapshot";
 import { getBaseballNews } from "@/services/naverNews";
 import {
   getPlayerHitterStats,
@@ -105,6 +106,13 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <HomeSnapshot
+        todayGames={schedule.error ? [] : schedule.data}
+        upcomingGames={upcoming.error ? [] : upcoming.data}
+        standings={standings.error ? [] : standings.data}
+        news={news.error ? [] : news.data}
+      />
 
       <section className="overflow-hidden px-3 sm:px-4">
         <div className="mx-auto max-w-6xl overflow-hidden rounded-lg border border-line bg-white shadow-soft">
